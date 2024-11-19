@@ -2,16 +2,15 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 class User(AbstractUser):
-    email = models.EmailField(unique=True)  # Enforce unique email
-    username = models.CharField(max_length=150, blank=True, null=True)  # Username not required and not unique
+    email = models.EmailField(unique=True)
+    username = models.CharField(max_length=150, blank=True, null=True)
+    profile_photo = models.ImageField(upload_to='profile_photos/', null=True, blank=True)
 
-    USERNAME_FIELD = 'email'  # Use email as the identifier for the user
-    REQUIRED_FIELDS = ['username']  # Make username required for admin interface, but not unique
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username']
 
     def __str__(self):
         return self.username if self.username else self.email
-
-
 
 class Subject(models.Model):
     name = models.CharField(max_length=100)

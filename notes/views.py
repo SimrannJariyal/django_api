@@ -1,24 +1,20 @@
-from rest_framework import status
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from .serializers import RegisterSerializer
-
-@api_view(['POST'])
-def register(request):
-    serializer = RegisterSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response({'message': 'User created successfully'}, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
-from .serializers import LoginSerializer
+from rest_framework import status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from .models import User
+from .serializers import LoginSerializer, UserProfileSerializer, RegisterSerializer
+from rest_framework import viewsets
+from .models import Subject, Unit
+from .serializers import SubjectSerializer, UnitSerializer
+from rest_framework.decorators import action
+from django.shortcuts import get_object_or_404
+import os
+from django.conf import settings
 
+# Login API View
 @api_view(['POST'])
 def login(request):
     serializer = LoginSerializer(data=request.data)
@@ -32,18 +28,16 @@ def login(request):
         if user is not None:
             # If user is authenticated, generate JWT token
             refresh = RefreshToken.for_user(user)
-            return Response({'access_token': str(refresh.access_token)}, status=status.HTTP_200_OK)
+            return Response({
+                'access_token': str(refresh.access_token),
+                'user_id': user.id  # Include user ID in the response
+            }, status=status.HTTP_200_OK)
         else:
             return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-from rest_framework import viewsets
-from .models import Subject, Unit
-from .serializers import SubjectSerializer, UnitSerializer
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
 
+# Subject & Unit API ViewSets
 class SubjectViewSet(viewsets.ModelViewSet):
     queryset = Subject.objects.all()
     serializer_class = SubjectSerializer
@@ -58,28 +52,79 @@ class UnitViewSet(viewsets.ModelViewSet):
         units = subject.units.all()
         serializer = UnitSerializer(units, many=True, context={'request': request})
         return Response(serializer.data)
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
-from rest_framework_simplejwt.tokens import RefreshToken
 
+# Logout API View
 @api_view(['POST'])
 def logout(request):
     try:
-        # Get the refresh token from the request
         refresh_token = request.data.get('refresh_token')
         if not refresh_token:
             return Response({'error': 'No refresh token provided'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Create the RefreshToken object
         token = RefreshToken(refresh_token)
-        
-        # Blacklist the refresh token
         token.blacklist()
-
         return Response({'message': 'Logout successful'}, status=status.HTTP_200_OK)
     
     except TokenError as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except InvalidToken as e:
         return Response({'error': 'Invalid refresh token'}, status=status.HTTP_401_UNAUTHORIZED)
+
+# User Registration API View
+@api_view(['POST'])
+def register(request):
+    serializer = RegisterSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.save()
+        return Response({
+            'message': 'User registered successfully',
+            'user_id': user.id
+        }, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# User Profile API View
+@api_view(['GET'])
+def user_profile(request, id):
+    try:
+        user = User.objects.get(id=id)
+        if user.profile_photo:
+            user.profile_photo_url = request.build_absolute_uri(settings.MEDIA_URL + str(user.profile_photo))
+        else:
+            user.profile_photo_url = None
+        
+        serializer = UserProfileSerializer(user)
+        data = serializer.data
+        data['profile_photo_url'] = user.profile_photo_url
+        return Response(data)
+
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+
+# Update Profile Photo API View
+@api_view(['PUT'])
+def update_profile_photo(request, id):
+    try:
+        user = User.objects.get(id=id)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+
+    if 'profile_photo' in request.FILES:
+        if user.profile_photo:
+            user.profile_photo.delete()
+        user.profile_photo = request.FILES['profile_photo']
+        user.save()
+        return Response({'message': 'Profile photo updated successfully'}, status=200)
+    return Response({'error': 'No profile photo provided'}, status=400)
+
+# Update Profile API View
+@api_view(['PUT', 'PATCH'])
+def update_profile(request, id):
+    try:
+        user = User.objects.get(id=id)
+        serializer = UserProfileSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=200)
+        return Response(serializer.errors, status=400)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
