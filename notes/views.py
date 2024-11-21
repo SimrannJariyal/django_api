@@ -100,22 +100,6 @@ def user_profile(request, id):
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=404)
 
-# Update Profile Photo API View
-@api_view(['PUT'])
-def update_profile_photo(request, id):
-    try:
-        user = User.objects.get(id=id)
-    except User.DoesNotExist:
-        return Response({'error': 'User not found'}, status=404)
-
-    if 'profile_photo' in request.FILES:
-        if user.profile_photo:
-            user.profile_photo.delete()
-        user.profile_photo = request.FILES['profile_photo']
-        user.save()
-        return Response({'message': 'Profile photo updated successfully'}, status=200)
-    return Response({'error': 'No profile photo provided'}, status=400)
-
 # Update Profile API View
 @api_view(['PUT', 'PATCH'])
 def update_profile(request, id):
@@ -128,3 +112,25 @@ def update_profile(request, id):
         return Response(serializer.errors, status=400)
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=404)
+
+
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import MultiPartParser
+from rest_framework.response import Response
+from rest_framework import status
+from .models import User
+
+@api_view(['PUT'])
+@parser_classes([MultiPartParser])
+def update_profile_photo(request, id):
+    try:
+        user = User.objects.get(id=id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if 'profile_photo' in request.FILES:
+        user.profile_photo = request.FILES['profile_photo']
+        user.save()
+        return Response({"message": "Profile photo updated successfully"}, status=status.HTTP_200_OK)
+    return Response({"error": "No photo provided"}, status=status.HTTP_400_BAD_REQUEST)
+
