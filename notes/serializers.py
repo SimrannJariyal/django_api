@@ -47,24 +47,20 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = ['id', 'user', 'title', 'description', 'is_completed', 'created_at', 'updated_at']
-        read_only_fields = ['created_at']
+        read_only_fields = ['created_at', 'updated_at', 'user']
 
 def create(self, validated_data):
-        # Automatically associate task with user if user_id is provided
-        user_id = validated_data.get('user_id')  # Retrieve user_id, not user
-        
-        try:
-            user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            raise NotFound(detail="User with the specified ID does not exist.")
-        
-        task = Task.objects.create(user=user, **validated_data)  # Pass the user object to the Task creation
-        return task
-def update(self, instance, validated_data):
+    user_id = validated_data.pop('user_id', None)
+    if not user_id:
+        raise serializers.ValidationError({"user_id": "This field is required."})
     try:
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        return instance
-    except Exception as e:
-        raise serializers.ValidationError({"error": f"Failed to update task: {str(e)}"})
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        raise NotFound(detail="User with the specified ID does not exist.")
+    validated_data['user'] = user
+    return super().create(validated_data)
+def update(self, instance, validated_data):
+    for attr, value in validated_data.items():
+        setattr(instance, attr, value)
+    instance.save()
+    return instance
