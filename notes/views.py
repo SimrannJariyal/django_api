@@ -134,3 +134,18 @@ def update_profile_photo(request, id):
         return Response({"message": "Profile photo updated successfully"}, status=status.HTTP_200_OK)
     return Response({"error": "No photo provided"}, status=status.HTTP_400_BAD_REQUEST)
 
+
+
+from rest_framework import viewsets
+from .models import Task
+from .serializers import TaskSerializer
+
+class TaskViewSet(viewsets.ModelViewSet):
+    queryset = Task.objects.all()
+    serializer_class = TaskSerializer
+
+    def get_queryset(self):
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            return Task.objects.filter(user_id=user_id)
+        return super().get_queryset()

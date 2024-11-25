@@ -34,7 +34,7 @@ SECRET_KEY = 'django-insecure-t6^ng=^9-!bl(qa(9jyx-^-_^5$pk*-fay7zz*v8akd_juppa!
 DEBUG = True
 
 ALLOWED_HOSTS = []
-AUTH_USER_MODEL = 'notes.User'
+
 
 
 REST_FRAMEWORK = {

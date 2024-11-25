@@ -1,12 +1,14 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import register, login, logout, user_profile, update_profile, update_profile_photo, SubjectViewSet, UnitViewSet
+from .views import register, login, logout, user_profile,TaskViewSet, update_profile, update_profile_photo, SubjectViewSet, UnitViewSet
 
 # Initialize the DefaultRouter
 router = DefaultRouter()
 # Register the viewsets with the router
 router.register(r'subjects', SubjectViewSet)
 router.register(r'units', UnitViewSet)
+router.register(r'tasks', TaskViewSet, basename='task')
+
 
 urlpatterns = [
     # Register the user-related paths
